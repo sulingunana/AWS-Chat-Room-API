@@ -1,1 +1,1 @@
-# AWS-Chat-Room-API
+# AWS-Chat Room API
