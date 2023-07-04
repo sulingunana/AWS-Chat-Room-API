@@ -7,6 +7,7 @@ import logging
 def lambda_handler(event, context):
     connectionId = event['requestContext']['connectionId']
     user_name = event.get('queryStringParameters', {'name': 'guest'}).get('name')
+
     
     to_send = json.loads(event['body']).get('to_send', None)
     message = json.loads(event['body']).get('message', None)
@@ -30,6 +31,7 @@ def lambda_handler(event, context):
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
     logger.info(receiver_id)
+    logger.info(event)
     
 
     domain = event["requestContext"]["domainName"]
