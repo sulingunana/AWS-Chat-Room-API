@@ -1,6 +1,7 @@
 import shutil
 import threading
 from time import sleep
+import sys
 
 class Terminal():
     def __init__(self):
@@ -16,36 +17,38 @@ class Terminal():
         _, rows = shutil.get_terminal_size()
         print("\033[{};{}H".format(rows, 0), end="")
 
-    def print_on_top(self, text):    
-        for i in range(self.last_height):
-            print()
-        print(text,end="")
-        self.last_height += 1
-        self.move_cursor_to_bottom()
+    def print_on_top(self, text):
+        print(f"Ensar: {text}")
 
-    def take_input(self):
+    def sonradan_gelen_print(self, text):
+        
         self.save_cursor_position()
 
-        # when client press enter, >>> will be deleted
-        input_text = input(">>> ")
+        print(f"Sonradan gelen mesaj: {text}")
         
-        self.restore_cursor_position()        
+        self.restore_cursor_position()
+
+        print("\033[1E",end="")  # Bir sonraki satıra geç
+        
+
+    def take_input(self):
+
+        input_text = input(">>> ")
+        sys.stdout.write("\033[F") # Şu anki satıra git
+        sys.stdout.write("\033[K") # Satırı temizle
+
         return input_text
 
-def listen_thread(terminal):
-    for i in range(10):
-        sleep(3)
-        terminal.restore_cursor_position()
-        print("hello",end="")
+def arada_gelen_mesaj_prova():
+    sleep(10)
+    terminal.sonradan_gelen_print("Merhaba, ben arada gelen mesajım.")
 
 if __name__ == "__main__":
     terminal = Terminal()
 
-    listen_thread = threading.Thread(target=listen_thread, args=(terminal,))
-    listen_thread.start()
+    threading.Thread(target=arada_gelen_mesaj_prova).start()
+
 
     for i in range(10):
-        input_text = terminal.take_input()
-        print(input_text)
-
-    listen_thread.kill()
+        mesaj = terminal.take_input()
+        terminal.print_on_top(mesaj)
