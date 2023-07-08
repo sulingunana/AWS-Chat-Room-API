@@ -51,7 +51,9 @@ class Connection:
                     msg_data = json_data["data"]["msg"]
                     msg = self.base64_decode(msg_data)
 
-                    self.MSG_LIST += "{}: {}\n".format(msg_from, msg)
+                    print("\r{}: {}\n>>> ".format(msg_from, msg), end="")
+
+                    #self.MSG_LIST += "{}: {}\n".format(msg_from, msg)
         except ConnectionError:
             print("[-] Bağlantı koptu.3")
             return
