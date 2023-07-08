@@ -12,7 +12,9 @@ Authors: Ensar Gök & Sülin Günana
 """
 
 class ConnectionError(Exception):
-    print("[-] Bağlantı koptu.2")
+    def __init__(self, message):
+        print("[-] Bağlantı koptu, \n{}".format(message), file=sys.stderr)
+
 
 class Connection:
     def __init__(self, user_name, msg_to):
@@ -24,8 +26,8 @@ class Connection:
             self.connection = websocket.create_connection(f"wss://28drcjvrtg.execute-api.eu-north-1.amazonaws.com/development?name={user_name}")
             self.connected = True
             print("\r[+] Bağlantı sağlandı.    ")
-        except:
-            print("\r[-] Bağlantı sağlanamadı.    ")
+        except Exception as e:
+            print("\r[-] Bağlantı sağlanamadı.    \nHata: {}".format(e), file=sys.stderr)
             self.connected = False
             exit(1)
         self.listen_thread = threading.Thread(target=self.listen_recv, daemon=True, name="ListenThread")
@@ -76,7 +78,7 @@ class Connection:
         try:
             sys.stdout.write(prompt)
             sys.stdout.flush()
-            msg = sys.stdin.readline()
+            msg = sys.stdin.readline().strip()
         except KeyboardInterrupt:
             print("\nExiting")
             exit(0)
