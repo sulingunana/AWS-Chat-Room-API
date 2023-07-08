@@ -11,6 +11,9 @@ AWS Chat Client
 Authors: Ensar Gök & Sülin Günana
 """
 
+class ConnectionError(Exception):
+    print("[-] Bağlantı koptu.2")
+
 class Connection:
     def __init__(self, user_name, msg_to):
         self.MSG_LIST = ""
@@ -25,27 +28,31 @@ class Connection:
             print("\r[-] Bağlantı sağlanamadı.    ")
             self.connected = False
             exit(1)
-        self.listen_thread = threading.Thread(target=self.listen_recv, daemon=True)
+        self.listen_thread = threading.Thread(target=self.listen_recv, daemon=True, name="ListenThread")
         self.listen_thread.start()
+        self.listen_thread.join(1)
 
     def listen_recv(self):
-        while 1:
-            recv = self.connection.recv()
-            json_data = json.loads(recv)
+        try:
+            while 1:
+                recv = self.connection.recv()
+                json_data = json.loads(recv)
 
 
-            if json_data.get("status") != "success":
-                print("\n[-] Bir hata oluştu: {}".format(json_data.get("message")))
-                self.connected = False
-                sys.exit(1)
+                if json_data.get("status") != "success":
+                    print("\n[-] Bir hata oluştu: {}".format(json_data.get("message")))
+                    self.connected = False
+                    raise ConnectionError("[-] Bir hata oluştu: {}".format(json_data.get("message")))
 
-            if json_data.get("message") == "received":
-                msg_from = json_data["data"]["from"]
-                msg_data = json_data["data"]["msg"]
-                msg = self.base64_decode(msg_data)
+                if json_data.get("message") == "received":
+                    msg_from = json_data["data"]["from"]
+                    msg_data = json_data["data"]["msg"]
+                    msg = self.base64_decode(msg_data)
 
-                self.MSG_LIST += "{}: {}\n".format(msg_from, msg)
-
+                    self.MSG_LIST += "{}: {}\n".format(msg_from, msg)
+        except ConnectionError:
+            print("[-] Bağlantı koptu.3")
+            return
 
 
     def base64_encode(self,txt):
@@ -67,9 +74,14 @@ class Connection:
 
     def take_input(self, prompt = ">>> "):
         try:
-            msg = input(prompt)
+            sys.stdout.write(prompt)
+            sys.stdout.flush()
+            msg = sys.stdin.readline()
         except KeyboardInterrupt:
             print("\nExiting")
+            exit(0)
+        except ConnectionError:
+            print("\nExiting2")
             exit(0)
         self.write_to_client(msg)
 
@@ -87,10 +99,7 @@ def main():
     connection = Connection(user, msg_to)
     
     while connection.connected:
-        try:
-            connection.take_input()
-        except:
-            break
+        connection.take_input()
 
 if __name__ == "__main__":
     main()
