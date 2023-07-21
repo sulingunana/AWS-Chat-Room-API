@@ -40,22 +40,26 @@ class Connection:
                 recv = self.connection.recv()
                 json_data = json.loads(recv)
 
-
-                if json_data.get("status") != "success":
-                    print("\n[-] Bir hata oluştu: {}".format(json_data.get("message")))
-                    self.connected = False
-                    raise ConnectionError("[-] Bir hata oluştu: {}".format(json_data.get("message")))
-
-                if json_data.get("message") == "received":
+                if json_data.get("status") == "success":
+                    # A message received
                     msg_from = json_data["data"]["from"]
                     msg_data = json_data["data"]["msg"]
-                    msg = self.base64_decode(msg_data)
+
+                    try:
+                        msg = self.base64_decode(msg_data)
+                    except:
+                        print("\r[i] Mesaj base64 decode edilemedi. Mesaj: {}".format(msg_data), file=sys.stderr, end="\n>>> ")
+                        msg = msg_data
 
                     print("\r{}: {}\n>>> ".format(msg_from, msg), end="")
 
                     #self.MSG_LIST += "{}: {}\n".format(msg_from, msg)
+
+                if json_data.get("status") == "failed":
+                    # Message sending failed
+                    print("\r[-] Mesaj gönderilemedi. Hata: {}\n>>> ".format(json_data["data"]), file=sys.stderr, end="")
         except ConnectionError:
-            print("[-] Bağlantı koptu.3")
+            print("[-] Bağlantı koptu")
             return
 
 
