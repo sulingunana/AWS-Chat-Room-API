@@ -4,6 +4,7 @@ from base64 import b64encode, b64decode
 import threading
 import argparse
 import sys
+import msvcrt
 
 # banner Ensar Gök ve Sülin Günana
 banner = """
@@ -14,6 +15,62 @@ Authors: Ensar Gök & Sülin Günana
 class ConnectionError(Exception):
     def __init__(self, message):
         print("[-] Bağlantı koptu, \n{}".format(message), file=sys.stderr)
+
+class Terminal:
+    def __init__(self, prompt = ">>> ") -> None:
+        self.prompt = prompt
+        self.yazi = ""
+
+    def mesaj_yazdir(self, mesaj):
+        sys.stdout.write("\r{}\r".format(" " * self.max_len))
+        sys.stdout.write("{}\n".format(mesaj))
+        sys.stdout.write("\r{}{}".format(self.prompt, self.yazi))
+        sys.stdout.flush()
+
+    def clear_line(self):
+        sys.stdout.write("\r{}{}".format(self.prompt, self.yazi))
+        sys.stdout.flush()
+
+    def input_al(self) -> str:
+        # sys.stdout.write(self.prompt)
+        sys.stdout.flush()
+
+        self.max_len = len(self.prompt + self.yazi)
+
+        while True:
+            self.max_len = max(self.max_len, len(self.prompt + self.yazi))
+            # clear the line to the end
+            self.clear_line()
+            sys.stdout.write("\r{}{}".format(self.prompt, self.yazi))
+
+            char = msvcrt.getwch()
+
+            if ord(char) == 8:
+                # Backspace
+                self.yazi = self.yazi[:-1]
+                sys.stdout.write("\b \b")
+                continue
+
+            # esc 
+            if ord(char) == 27:
+                raise KeyboardInterrupt
+
+            # CTRL + C
+            if ord(char) == 3:
+                raise KeyboardInterrupt
+            
+            # enter
+            if ord(char) == 13:
+                if self.yazi == "":
+                    continue
+                yazi = self.yazi
+                self.yazi = ""
+                return yazi
+
+            # Normal character
+            self.yazi += char
+
+            sys.stdout.flush()
 
 
 class Connection:
@@ -30,34 +87,32 @@ class Connection:
             print("\r[-] Bağlantı sağlanamadı.    \nHata: {}".format(e), file=sys.stderr)
             self.connected = False
             exit(1)
-        self.listen_thread = threading.Thread(target=self.listen_recv, daemon=True, name="ListenThread")
-        self.listen_thread.start()
-        self.listen_thread.join(1)
 
-    def listen_recv(self):
+    def recv_txt(self) -> str:
         try:
-            while 1:
-                recv = self.connection.recv()
-                json_data = json.loads(recv)
+            recv = self.connection.recv()
+            json_data = json.loads(recv)
 
-                if json_data.get("status") == "success":
-                    # A message received
-                    msg_from = json_data["data"]["from"]
-                    msg_data = json_data["data"]["msg"]
+            if json_data.get("status") == "success":
+                # A message received
+                msg_from = json_data["data"]["from"]
+                msg_data = json_data["data"]["msg"]
 
-                    try:
-                        msg = self.base64_decode(msg_data)
-                    except:
-                        print("\r[i] Mesaj base64 decode edilemedi. Mesaj: {}".format(msg_data), file=sys.stderr, end="\n>>> ")
-                        msg = msg_data
+                try:
+                    msg = self.base64_decode(msg_data)
+                except:
+                    #print("\r[i] Mesaj base64 decode edilemedi. Mesaj: {}".format(msg_data), file=sys.stderr, end="\n>>> ")
+                    msg = msg_data
 
-                    print("\r{}: {}\n>>> ".format(msg_from, msg), end="")
+                #print("\r{}: {}\n>>> ".format(msg_from, msg), end="")
 
-                    #self.MSG_LIST += "{}: {}\n".format(msg_from, msg)
+                return "{}: {}".format(msg_from, msg)
 
-                if json_data.get("status") == "failed":
-                    # Message sending failed
-                    print("\r[-] Mesaj gönderilemedi. Hata: {}\n>>> ".format(json_data["data"]), file=sys.stderr, end="")
+                #self.MSG_LIST += "{}: {}\n".format(msg_from, msg)
+
+            if json_data.get("status") == "failed":
+                # Message sending failed
+                print("\r[-] Mesaj gönderilemedi. Hata: {}\n>>> ".format(json_data["data"]), file=sys.stderr, end="")
         except ConnectionError:
             print("[-] Bağlantı koptu")
             return
@@ -77,21 +132,14 @@ class Connection:
         self.connection.send(data_to_send)
 
         if self.MSG_LIST:
-            print(self.MSG_LIST, end="")
+            #print(self.MSG_LIST, end="")
             self.MSG_LIST = ""
 
-    def take_input(self, prompt = ">>> "):
-        try:
-            sys.stdout.write(prompt)
-            sys.stdout.flush()
-            msg = sys.stdin.readline().strip()
-        except KeyboardInterrupt:
-            print("\nExiting")
-            exit(0)
-        except ConnectionError:
-            print("\nExiting2")
-            exit(0)
-        self.write_to_client(msg)
+def listen_recv(connection: Connection, terminal: Terminal):
+    while True:
+        recv = connection.recv_txt()
+        terminal.mesaj_yazdir(recv)
+
 
 def main():
     parser = argparse.ArgumentParser(description='AWS Chat Client')
@@ -105,9 +153,17 @@ def main():
     print(banner)
 
     connection = Connection(user, msg_to)
+    terminal = Terminal() 
     
+    listen_thread = threading.Thread(target=listen_recv, args=(connection, terminal), daemon=True, name="ListenThread")
+    listen_thread.start()
+
+
     while connection.connected:
-        connection.take_input()
+        txt = terminal.input_al()
+        terminal.mesaj_yazdir("{}: {}".format(user, txt))
+        connection.write_to_client(txt)
+
 
 if __name__ == "__main__":
     main()

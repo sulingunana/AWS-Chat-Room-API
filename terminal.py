@@ -1,54 +1,78 @@
-import shutil
+#-Encoding: utf-8
 import threading
+import msvcrt
 from time import sleep
 import sys
 
-class Terminal():
-    def __init__(self):
-        self.last_height = 0
-
-    def save_cursor_position(self):
-        print("\033[s", end="")
-
-    def restore_cursor_position(self):
-        print("\033[u", end="")
-
-    def move_cursor_to_bottom(self):
-        _, rows = shutil.get_terminal_size()
-        print("\033[{};{}H".format(rows, 0), end="")
-
-    def print_on_top(self, text):
-        print(f"Ensar: {text}")
-
-    def sonradan_gelen_print(self, text):
-        
-        self.save_cursor_position()
-
-        print(f"Sonradan gelen mesaj: {text}")
-        
-        self.restore_cursor_position()
-
-        print("\033[1E",end="")  # Bir sonraki satıra geç
-        
-
-    def take_input(self):
-
-        input_text = input(">>> ")
-        sys.stdout.write("\033[F") # Şu anki satıra git
-        sys.stdout.write("\033[K") # Satırı temizle
-
-        return input_text
-
-def arada_gelen_mesaj_prova():
-    sleep(10)
-    terminal.sonradan_gelen_print("Merhaba, ben arada gelen mesajım.")
-
-if __name__ == "__main__":
+def main():
     terminal = Terminal()
 
-    threading.Thread(target=arada_gelen_mesaj_prova).start()
+
+class Terminal:
+    def __init__(self, prompt = ">>> ") -> None:
+        self.prompt = prompt
+        self.yazi = ""
+
+    def mesaj_yazdir(self, mesaj):
+        sys.stdout.write("\r{}\r".format(" " * self.max_len))
+        sys.stdout.write("{}\n".format(mesaj))
+        sys.stdout.flush()
+
+    def clear_line(self):
+        sys.stdout.write("\r{}{}".format(self.prompt, self.yazi))
+        sys.stdout.flush()
+
+    def input_al(self) -> str:
+        sys.stdout.write(self.prompt)
+        sys.stdout.flush()
+
+        self.max_len = len(self.prompt + self.yazi)
+
+        while True:
+            self.max_len = max(self.max_len, len(self.prompt + self.yazi))
+            # clear the line to the end
+            self.clear_line()
+
+            sys.stdout.write("\r{}{}".format(self.prompt, self.yazi))
+
+            char = msvcrt.getwch()
+
+            if ord(char) == 8:
+                # Backspace
+                self.yazi = self.yazi[:-1]
+                sys.stdout.write("\b \b")
+                continue
+
+            # esc 
+            if ord(char) == 27:
+                raise KeyboardInterrupt
+
+            # CTRL + C
+            if ord(char) == 3:
+                raise KeyboardInterrupt
+            
+            # enter
+            if ord(char) == 13:
+                if self.yazi == "":
+                    continue
+                sys.stdout.write("\n")
+                yazi = self.yazi
+                self.yazi = ""
+                return yazi
+
+            # Normal character
+            self.yazi += char
+
+            sys.stdout.flush()
 
 
-    for i in range(10):
-        mesaj = terminal.take_input()
-        terminal.print_on_top(mesaj)
+def main():
+    terminal = Terminal()
+
+    while True:
+        txt = terminal.input_al()
+        terminal.mesaj_yazdir("{}: {}".format("Ensar", txt))
+
+if __name__ == "__main__":
+    main()
+
