@@ -28,7 +28,7 @@ class Terminal:
         sys.stdout.flush()
 
     def clear_line(self):
-        sys.stdout.write("\r{}{}".format(self.prompt, self.yazi))
+        sys.stdout.write("\r{}\r".format(" " * self.max_len))
         sys.stdout.flush()
 
     def input_al(self) -> str:
@@ -42,6 +42,7 @@ class Terminal:
             # clear the line to the end
             self.clear_line()
             sys.stdout.write("\r{}{}".format(self.prompt, self.yazi))
+            sys.stdout.flush()
 
             char = msvcrt.getwch()
 
@@ -91,31 +92,32 @@ class Connection:
     def recv_txt(self) -> str:
         try:
             recv = self.connection.recv()
-            json_data = json.loads(recv)
+        except:
+            self.connected = False
+            raise ConnectionError("Bağlantı koptu.")
+        
+        json_data = json.loads(recv)
 
-            if json_data.get("status") == "success":
-                # A message received
-                msg_from = json_data["data"]["from"]
-                msg_data = json_data["data"]["msg"]
+        if json_data.get("status") == "success":
+            # A message received
+            msg_from = json_data["data"]["from"]
+            msg_data = json_data["data"]["msg"]
 
-                try:
-                    msg = self.base64_decode(msg_data)
-                except:
-                    #print("\r[i] Mesaj base64 decode edilemedi. Mesaj: {}".format(msg_data), file=sys.stderr, end="\n>>> ")
-                    msg = msg_data
+            try:
+                msg = self.base64_decode(msg_data)
+            except:
+                #print("\r[i] Mesaj base64 decode edilemedi. Mesaj: {}".format(msg_data), file=sys.stderr, end="\n>>> ")
+                msg = msg_data
 
-                #print("\r{}: {}\n>>> ".format(msg_from, msg), end="")
+            #print("\r{}: {}\n>>> ".format(msg_from, msg), end="")
 
-                return "{}: {}".format(msg_from, msg)
+            return "{}: {}".format(msg_from, msg)
 
-                #self.MSG_LIST += "{}: {}\n".format(msg_from, msg)
+            #self.MSG_LIST += "{}: {}\n".format(msg_from, msg)
 
-            if json_data.get("status") == "failed":
-                # Message sending failed
-                print("\r[-] Mesaj gönderilemedi. Hata: {}\n>>> ".format(json_data["data"]), file=sys.stderr, end="")
-        except ConnectionError:
-            print("[-] Bağlantı koptu")
-            return
+        if json_data.get("status") == "failed":
+            # Message sending failed
+            return "\r[-] Mesaj gönderilemedi. Hata: {}".format(json_data["data"])
 
 
     def base64_encode(self,txt):
@@ -137,7 +139,11 @@ class Connection:
 
 def listen_recv(connection: Connection, terminal: Terminal):
     while True:
-        recv = connection.recv_txt()
+        try:
+            recv = connection.recv_txt()
+        except ConnectionError as e:
+            print(e)
+            break
         terminal.mesaj_yazdir(recv)
 
 
@@ -160,9 +166,15 @@ def main():
 
 
     while connection.connected:
-        txt = terminal.input_al()
+        try:
+            txt = terminal.input_al()
+        except KeyboardInterrupt:
+            terminal.clear_line()
+            print("\r[i] Çıkış yapılıyor...")
+            break
         terminal.mesaj_yazdir("{}: {}".format(user, txt))
         connection.write_to_client(txt)
+
 
 
 if __name__ == "__main__":
